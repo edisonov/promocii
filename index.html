@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="bg"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Промоции в магазините</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f7a5a" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1512" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Промоции">
+<meta name="application-name" content="Промоции">
+<meta name="description" content="Актуални промоции в Lidl, Kaufland и BILLA — топ оферти, цена за единица и списък за пазаруване.">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@600;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+:root{
+  --bg:#f4f7f5; --surface:#ffffff; --surface2:#eef3f0; --fg:#122019; --muted:#5a6b64; --line:#dce5e1;
+  --accent:#0f7a5a; --accent-fg:#ffffff; --tag:#fff1a8; --tag-fg:#3d3200;
+  --lidl:#0050aa; --kauf:#d0021b; --billa:#a67c00;
+  --warn:#b54708; --warn-bg:#fff4e5; --good:#0f7a5a;
+  --f-display:"Unbounded","Onest",system-ui,sans-serif;
+  --f-body:"Onest",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --shadow:0 1px 2px rgba(18,32,25,.06),0 4px 16px rgba(18,32,25,.04);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1512; --surface:#161f1b; --surface2:#1d2823; --fg:#e7efeb; --muted:#93a39c; --line:#28332e;
+  --accent:#43c698; --accent-fg:#06130d; --tag:#4a4310; --tag-fg:#fff3b0;
+  --lidl:#6ea8ff; --kauf:#ff6b78; --billa:#f2c94c; --warn:#ffb46b; --warn-bg:#352410; --good:#43c698;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25); color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;padding-bottom:40px}
+.wrap{max-width:900px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) 16px calc(14px + env(safe-area-inset-left))}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(20px,5vw,28px);margin:0;line-height:1.15;text-wrap:balance}
+.sub{color:var(--muted);font-size:13px;display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px}
+.sub b{color:var(--fg);font-weight:600}
+.status{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin:14px 0}
+.st{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:9px 11px;box-shadow:var(--shadow)}
+.st .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.st small{color:var(--muted);font-size:12px;display:block;margin-top:2px;line-height:1.35}
+.chip{display:inline-flex;align-items:center;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
+  padding:2px 7px;border-radius:5px;border:1.5px solid currentColor;white-space:nowrap;line-height:1.5}
+.L{color:var(--lidl)} .K{color:var(--kauf)} .B{color:var(--billa)}
+.bar{position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0 10px;margin-bottom:4px}
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tab{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);color:var(--fg);font-family:inherit;font-size:14px;
+  font-weight:600;padding:8px 14px;border-radius:999px;cursor:pointer;display:inline-flex;gap:7px;align-items:center}
+.tab[aria-selected="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.tab .n{font-family:var(--f-mono);font-size:12px;background:rgba(0,0,0,.12);padding:0 6px;border-radius:999px}
+.tab[aria-selected="true"] .n{background:rgba(255,255,255,.25)}
+.search{width:100%;font-family:inherit;font-size:16px;padding:11px 13px;border:1px solid var(--line);border-radius:12px;
+  background:var(--surface);color:var(--fg);box-shadow:var(--shadow)}
+.filters{display:flex;gap:6px;overflow-x:auto;padding:10px 0 2px;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.filters::-webkit-scrollbar{height:0}
+.fb{flex:0 0 auto;border:1px solid var(--line);background:var(--surface);color:var(--fg);font-family:inherit;font-size:13px;
+  font-weight:600;padding:6px 12px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.fb[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.fb.L[aria-pressed="true"]{background:var(--lidl);border-color:var(--lidl);color:#fff}
+.fb.K[aria-pressed="true"]{background:var(--kauf);border-color:var(--kauf);color:#fff}
+.fb.B[aria-pressed="true"]{background:var(--billa);border-color:var(--billa);color:#fff}
+.row2{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.sel{font-family:inherit;font-size:13px;font-weight:600;padding:6px 10px;border:1px solid var(--line);border-radius:999px;
+  background:var(--surface);color:var(--fg)}
+.toggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;
+  border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 11px}
+.toggle input{accent-color:var(--accent);width:15px;height:15px;margin:0}
+.count{color:var(--muted);font-size:13px;margin:10px 2px 6px}
+.rec{background:linear-gradient(135deg,var(--surface),var(--surface2));border:1px solid var(--accent);
+  border-left:4px solid var(--accent);border-radius:12px;padding:12px 14px;margin:6px 0 14px;font-size:14px;box-shadow:var(--shadow)}
+.rec b{color:var(--accent)}
+.grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(270px,1fr))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 13px;box-shadow:var(--shadow);
+  display:flex;flex-direction:column;gap:7px;position:relative;overflow:hidden}
+.card.exp{border-color:var(--warn)}
+.card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.card h3{margin:0;font-size:15px;font-weight:600;line-height:1.3}
+.priceline{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.price{font-family:var(--f-mono);font-weight:600;font-size:18px;background:var(--tag);color:var(--tag-fg);padding:1px 7px;border-radius:6px}
+.old{font-family:var(--f-mono);color:var(--muted);text-decoration:line-through;font-size:13px}
+.disc{font-family:var(--f-mono);color:var(--accent);font-weight:700;font-size:14px}
+.unit{font-family:var(--f-mono);color:var(--muted);font-size:12px}
+.metarow{display:flex;flex-wrap:wrap;gap:5px 10px;align-items:center;font-size:12px;color:var(--muted)}
+.pill{background:var(--surface2);border-radius:6px;padding:1px 7px;font-size:11.5px;color:var(--muted)}
+.pill.warn{background:var(--warn-bg);color:var(--warn);font-weight:600}
+.pill.card{color:var(--billa)}
+.add{margin-top:2px;align-self:flex-start;border:1px solid var(--accent);background:transparent;color:var(--accent);
+  font-family:inherit;font-weight:600;font-size:13px;padding:6px 12px;border-radius:999px;cursor:pointer;transition:.12s}
+.add[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
+.star{position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 34px 34px 0;
+  border-color:transparent var(--accent) transparent transparent;display:none}
+.card.inlist .star{display:block}
+.sgroup{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 13px;margin-bottom:12px;box-shadow:var(--shadow)}
+.sgroup h3{margin:0 0 8px;font-size:16px;font-family:var(--f-display);font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.sitem{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid var(--line)}
+.sitem:first-of-type{border-top:0}
+.sitem input{margin-top:3px;accent-color:var(--accent);width:18px;height:18px;flex:none;cursor:pointer}
+.sitem .txt{flex:1;min-width:0}
+.sitem .txt small{color:var(--muted);display:block;font-size:12px}
+.sitem.bought .txt>b{text-decoration:line-through;color:var(--muted)}
+.sitem .rm{border:none;background:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1}
+.empty{text-align:center;color:var(--muted);padding:48px 20px;font-size:15px}
+.empty .big{font-size:40px;margin-bottom:8px}
+.foot{margin-top:22px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px;line-height:1.5}
+.foot a{color:var(--accent)}
+.skel{height:92px;border-radius:14px;background:linear-gradient(90deg,var(--surface),var(--surface2),var(--surface));
+  background-size:200% 100%;animation:sh 1.3s infinite}
+@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style></head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Промоции в магазините</h1>
+    <div class="sub" id="sub"><span>Lidl · Kaufland · BILLA</span></div>
+  </header>
+
+  <div id="status" class="status" hidden></div>
+  <div id="rec" class="rec" hidden></div>
+
+  <div class="bar">
+    <div class="tabs" role="tablist">
+      <button class="tab" id="tabAll" role="tab" aria-selected="true">Всички оферти</button>
+      <button class="tab" id="tabList" role="tab" aria-selected="false">Моят списък <span class="n" id="listCount">0</span></button>
+    </div>
+    <div id="controls">
+      <input class="search" id="q" type="search" placeholder="Търси продукт… (напр. масло, кафе, пилешко)" autocomplete="off">
+      <div class="filters" id="storeFilters"></div>
+      <div class="filters" id="catFilters"></div>
+      <div class="row2">
+        <select class="sel" id="sort" aria-label="Подреждане">
+          <option value="discount">Най-голяма отстъпка</option>
+          <option value="price">Най-ниска цена</option>
+          <option value="store">По магазин</option>
+          <option value="name">По азбучен ред</option>
+        </select>
+        <label class="toggle"><input type="checkbox" id="onlyTop"> Само топ</label>
+        <label class="toggle"><input type="checkbox" id="hideCard"> Без карта/приложение</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="count" id="count"></div>
+  <div id="main"></div>
+
+  <div class="foot" id="foot">
+    <div>Данните се обновяват автоматично всяка сутрин. Цените и наличностите в конкретния магазин може да се различават; промоциите често са до изчерпване на количествата.</div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+var CATS=['Месо и риба','Млечни','Плодове и зеленчуци','Основни продукти','Напитки','Домакинство и хигиена','Друго'];
+var STORE_CLASS={'Lidl':'L','Kaufland':'K','BILLA':'B'};
+var DATA=null;
+var PERSIST={list:{},bought:{}};
+var F={store:'all',cat:'all',q:'',onlyTop:false,hideCard:false,sort:'discount',tab:'all'};
+var $=function(s){return document.querySelector(s);};
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function fmt(n){ if(n==null||isNaN(n))return ''; return Number(n).toFixed(2).replace('.',',')+' €'; }
+
+/* ---------- init ---------- */
+renderSkeleton();
+bindControls();
+loadLocal();
+loadCachedData();
+renderList();
+loadData();
+registerSW();
+
+function loadData(){
+  fetch('data.json?t='+Date.now(),{cache:'no-store'})
+    .then(function(r){ if(!r.ok) throw new Error('http'); return r.json(); })
+    .then(function(d){ if(d&&d.items){ DATA=d; saveCachedData(d); renderAll(); } else if(!DATA){ renderEmpty(); } })
+    .catch(function(){ if(!DATA) renderEmpty(); });
+}
+function loadLocal(){ try{ var r=localStorage.getItem('promo_list'); if(r)PERSIST=JSON.parse(r); }catch(e){} }
+function saveList(){ try{ localStorage.setItem('promo_list',JSON.stringify(PERSIST)); }catch(e){} }
+function loadCachedData(){ try{ var r=localStorage.getItem('promo_data'); if(r){ var d=JSON.parse(r); if(d&&d.items){ DATA=d; renderAll(); } } }catch(e){} }
+function saveCachedData(d){ try{ localStorage.setItem('promo_data',JSON.stringify(d)); }catch(e){} }
+function registerSW(){ if('serviceWorker'in navigator){ window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); }); } }
+
+/* ---------- controls ---------- */
+function bindControls(){
+  $('#tabAll').onclick=function(){setTab('all');};
+  $('#tabList').onclick=function(){setTab('list');};
+  $('#q').oninput=function(){F.q=this.value.trim().toLowerCase();renderList();};
+  $('#sort').onchange=function(){F.sort=this.value;renderList();};
+  $('#onlyTop').onchange=function(){F.onlyTop=this.checked;renderList();};
+  $('#hideCard').onchange=function(){F.hideCard=this.checked;renderList();};
+}
+function setTab(t){
+  F.tab=t;
+  $('#tabAll').setAttribute('aria-selected',t==='all');
+  $('#tabList').setAttribute('aria-selected',t==='list');
+  $('#controls').style.display = t==='all'?'':'none';
+  $('#count').style.display = t==='all'?'':'none';
+  renderList();
+  window.scrollTo(0,0);
+}
+
+/* ---------- rendering ---------- */
+function renderSkeleton(){
+  var h=''; for(var i=0;i<4;i++)h+='<div class="skel" style="margin-bottom:10px"></div>';
+  $('#main').innerHTML='<div class="grid">'+h+'</div>';
+}
+function renderAll(){ renderStatus(); buildFilters(); renderList(); }
+
+function renderStatus(){
+  if(!DATA)return;
+  var s=$('#sub'); var bits=[];
+  if(DATA.date_label)bits.push('<b>'+esc(DATA.date_label)+'</b>');
+  if(DATA.city)bits.push(esc(DATA.city));
+  if(DATA.currency)bits.push('Цени в '+esc(DATA.currency));
+  s.innerHTML=bits.join(' · ')||'Lidl · Kaufland · BILLA';
+
+  var st=$('#status');
+  if(DATA.stores_status&&DATA.stores_status.length){
+    st.hidden=false;
+    st.innerHTML=DATA.stores_status.map(function(x){
+      var col = x.ok===true?'var(--good)':(x.ok===false?'var(--kauf)':'var(--warn)');
+      var cls = STORE_CLASS[x.store]||'';
+      return '<div class="st"><span class="chip '+cls+'">'+esc(x.store)+'</span> '+
+        '<small><span class="dot" style="background:'+col+'"></span>'+esc(x.note||'')+'</small></div>';
+    }).join('');
+  } else st.hidden=true;
+
+  var r=$('#rec');
+  if(DATA.recommendation){ r.hidden=false; r.innerHTML='<b>Препоръка днес: </b>'+esc(DATA.recommendation); }
+  else r.hidden=true;
+}
+
+function buildFilters(){
+  var sf=$('#storeFilters'); var present={};
+  (DATA.items||[]).forEach(function(i){present[i.store]=true;});
+  var stores=['Lidl','Kaufland','BILLA'].filter(function(s){return present[s];});
+  sf.innerHTML='<button class="fb" data-store="all" aria-pressed="true">Всички магазини</button>'+
+    stores.map(function(s){return '<button class="fb '+(STORE_CLASS[s]||'')+'" data-store="'+esc(s)+'" aria-pressed="false">'+esc(s)+'</button>';}).join('');
+  sf.querySelectorAll('.fb').forEach(function(b){b.onclick=function(){
+    F.store=b.getAttribute('data-store');
+    sf.querySelectorAll('.fb').forEach(function(x){x.setAttribute('aria-pressed',x===b);});renderList();};});
+
+  var cf=$('#catFilters'); var catsPresent=CATS.filter(function(c){return (DATA.items||[]).some(function(i){return i.category===c;});});
+  cf.innerHTML='<button class="fb" data-cat="all" aria-pressed="true">Всички категории</button>'+
+    catsPresent.map(function(c){return '<button class="fb" data-cat="'+esc(c)+'" aria-pressed="false">'+esc(c)+'</button>';}).join('');
+  cf.querySelectorAll('.fb').forEach(function(b){b.onclick=function(){
+    F.cat=b.getAttribute('data-cat');
+    cf.querySelectorAll('.fb').forEach(function(x){x.setAttribute('aria-pressed',x===b);});renderList();};});
+}
+
+function requiresCard(i){ return /карта|card|приложени|plus|lidl plus/i.test(i.condition||''); }
+
+function filtered(){
+  var items=(DATA&&DATA.items)?DATA.items.slice():[];
+  items=items.filter(function(i){
+    if(F.store!=='all'&&i.store!==F.store)return false;
+    if(F.cat!=='all'&&i.category!==F.cat)return false;
+    if(F.onlyTop&&!i.top)return false;
+    if(F.hideCard&&requiresCard(i))return false;
+    if(F.q){ var hay=((i.product||'')+' '+(i.store||'')+' '+(i.category||'')).toLowerCase(); if(hay.indexOf(F.q)<0)return false; }
+    return true;
+  });
+  var dir={discount:function(a,b){return (b.discount||0)-(a.discount||0);},
+    price:function(a,b){return (a.price||1e9)-(b.price||1e9);},
+    store:function(a,b){return (a.store||'').localeCompare(b.store||'',"bg")||((b.discount||0)-(a.discount||0));},
+    name:function(a,b){return (a.product||'').localeCompare(b.product||'',"bg");}};
+  items.sort(dir[F.sort]||dir.discount);
+  return items;
+}
+
+function cardHTML(i){
+  var inList=!!PERSIST.list[i.id];
+  var exp=isExpiring(i.valid_to);
+  var h='<div class="card'+(inList?' inlist':'')+(exp?' exp':'')+'" data-id="'+esc(i.id)+'">';
+  h+='<div class="star"></div>';
+  h+='<div class="top"><h3>'+esc(i.product)+(i.size&&!/кг|^л$|бр/.test(i.size)?' <span class="unit">'+esc(i.size)+'</span>':'')+'</h3>'+
+     '<span class="chip '+(STORE_CLASS[i.store]||'')+'">'+esc(i.store)+'</span></div>';
+  h+='<div class="priceline"><span class="price">'+esc(i.price_label||fmt(i.price))+'</span>';
+  if(i.old_price)h+='<span class="old">'+fmt(i.old_price)+'</span>';
+  if(i.discount)h+='<span class="disc">−'+i.discount+'%</span>';
+  h+='</div>';
+  if(i.unit_label)h+='<div class="unit">'+esc(i.unit_label)+'</div>';
+  h+='<div class="metarow">';
+  if(i.category)h+='<span class="pill">'+esc(i.category)+'</span>';
+  if(i.valid_to)h+='<span class="pill'+(exp?' warn':'')+'">до '+esc(i.valid_to)+(exp?' ⚠':'')+'</span>';
+  if(i.condition&&i.condition!=='без карта')h+='<span class="pill'+(requiresCard(i)?' card':'')+'">'+esc(i.condition)+'</span>';
+  h+='</div>';
+  h+='<button class="add" aria-pressed="'+inList+'">'+(inList?'✓ В списъка':'+ Добави в списъка')+'</button>';
+  h+='</div>';
+  return h;
+}
+
+function renderList(){
+  if(F.tab==='list'){ renderShopping(); updateListCount(); return; }
+  updateListCount();
+  if(!DATA){ return; }
+  var items=filtered();
+  $('#count').textContent=items.length+(items.length===1?' оферта':' оферти');
+  if(!items.length){ $('#main').innerHTML='<div class="empty"><div class="big">🔍</div>Няма оферти с този филтър.</div>'; return; }
+  $('#main').innerHTML='<div class="grid">'+items.map(cardHTML).join('')+'</div>';
+  $('#main').querySelectorAll('.card .add').forEach(function(btn){
+    btn.onclick=function(){ var id=btn.closest('.card').getAttribute('data-id'); toggleList(id); };
+  });
+}
+
+function toggleList(id){
+  if(PERSIST.list[id]){ delete PERSIST.list[id]; delete PERSIST.bought[id]; }
+  else PERSIST.list[id]=true;
+  saveList();
+  if(F.tab==='list')renderShopping(); else {
+    var c=$('#main').querySelector('.card[data-id="'+(window.CSS&&CSS.escape?CSS.escape(id):id)+'"]');
+    if(c){ var inl=!!PERSIST.list[id]; c.classList.toggle('inlist',inl);
+      var b=c.querySelector('.add'); b.setAttribute('aria-pressed',inl); b.textContent=inl?'✓ В списъка':'+ Добави в списъка'; }
+  }
+  updateListCount();
+}
+
+function itemById(id){ return (DATA&&DATA.items||[]).find(function(i){return i.id===id;}); }
+function updateListCount(){ var n=Object.keys(PERSIST.list).length; $('#listCount').textContent=n; }
+
+function renderShopping(){
+  var ids=Object.keys(PERSIST.list);
+  if(!ids.length){ $('#main').innerHTML='<div class="empty"><div class="big">🛒</div>Списъкът ти е празен.<br>Добави оферти от таба „Всички оферти“.</div>'; return; }
+  var byStore={};
+  ids.forEach(function(id){ var it=itemById(id); var store=it?it.store:'Други'; (byStore[store]=byStore[store]||[]).push(id); });
+  var order=['Kaufland','BILLA','Lidl','Други'];
+  var html='';
+  order.forEach(function(store){
+    if(!byStore[store])return;
+    var rows=byStore[store].map(function(id){
+      var it=itemById(id); var bought=!!PERSIST.bought[id];
+      var name=it?it.product:id; var price=it?(it.price_label||fmt(it.price)):'';
+      var meta=it?[(it.valid_to?'до '+it.valid_to:''),(it.condition&&it.condition!=='без карта'?it.condition:'')].filter(Boolean).join(' · '):'';
+      return '<div class="sitem'+(bought?' bought':'')+'" data-id="'+esc(id)+'">'+
+        '<input type="checkbox" '+(bought?'checked':'')+'>'+
+        '<div class="txt"><b>'+esc(name)+'</b> — '+esc(price)+(meta?'<small>'+esc(meta)+'</small>':'')+'</div>'+
+        '<button class="rm" title="Премахни">×</button></div>';
+    }).join('');
+    var cls=STORE_CLASS[store]||'';
+    html+='<div class="sgroup"><h3><span>'+esc(store)+'</span>'+(cls?'<span class="chip '+cls+'">'+byStore[store].length+' бр.</span>':'')+'</h3>'+rows+'</div>';
+  });
+  $('#main').innerHTML=html;
+  $('#main').querySelectorAll('.sitem').forEach(function(row){
+    var id=row.getAttribute('data-id');
+    row.querySelector('input').onchange=function(){ if(this.checked)PERSIST.bought[id]=true; else delete PERSIST.bought[id];
+      row.classList.toggle('bought',this.checked); saveList(); };
+    row.querySelector('.rm').onclick=function(){ delete PERSIST.list[id]; delete PERSIST.bought[id]; saveList(); renderShopping(); updateListCount(); };
+  });
+}
+
+function renderEmpty(){
+  if(DATA)return;
+  $('#count').textContent='';
+  $('#main').innerHTML='<div class="empty"><div class="big">🛒</div>Още няма заредени промоции или няма връзка с интернет.<br>Опитай пак по-късно.</div>';
+}
+
+function isExpiring(vt){
+  if(!vt||!DATA||!DATA.date)return false;
+  var m=/^(\d{1,2})\.(\d{1,2})/.exec(vt); if(!m)return false;
+  var base=new Date(DATA.date+'T00:00:00'); if(isNaN(base))return false;
+  var yr=base.getFullYear(); var d=new Date(yr,parseInt(m[2],10)-1,parseInt(m[1],10));
+  var diff=Math.round((d-base)/86400000);
+  return diff>=0&&diff<=1;
+}
+})();
+</script>
+</body></html>
