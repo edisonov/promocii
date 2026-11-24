@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
 """
 Обновява data.json с актуалните промоции в Lidl, Kaufland и BILLA (София).
-Използва Anthropic API + вградения web_search инструмент, за да събере данните.
+Използва Google Gemini API (безплатен ключ) + Google Search grounding.
 При грешка или невалиден резултат НЕ презаписва data.json (пази последните добри данни).
 """
 import os, sys, json, re, datetime, pathlib
 
 try:
-    import anthropic
+    from google import genai
+    from google.genai import types
 except ImportError:
-    print("ERROR: липсва пакетът 'anthropic' (pip install anthropic)", file=sys.stderr)
+    print("ERROR: липсва пакетът 'google-genai' (pip install google-genai)", file=sys.stderr)
     sys.exit(1)
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DATA = ROOT / "data.json"
 
-API_KEY = os.environ.get("ANTHROPIC_API_KEY")
-MODEL = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-5")
+API_KEY = os.environ.get("GEMINI_API_KEY")
+MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 if not API_KEY:
-    print("ERROR: липсва ANTHROPIC_API_KEY", file=sys.stderr)
+    print("ERROR: липсва GEMINI_API_KEY", file=sys.stderr)
     sys.exit(1)
 
 today = datetime.date.today()
@@ -62,11 +63,11 @@ SCHEMA = r"""
 
 PROMPT = f"""Днес е {date_label} ({today.isoformat()}). Ти си агент за изгодно пазаруване в София, България.
 
-Събери АКТУАЛНИТЕ промоции във веригите Lidl, Kaufland и BILLA в България, използвайки уеб търсене. Фокус върху ежедневни стоки: месо и риба, млечни, плодове и зеленчуци, основни продукти (кафе, олио, брашно, захар, ориз, хляб), напитки, домакинство и хигиена. Включи и 1–3 нехранителни оферти само ако отстъпката е много голяма (категория „Друго“).
+Събери АКТУАЛНИТЕ промоции във веригите Lidl, Kaufland и BILLA в България, като търсиш в Google. Фокус върху ежедневни стоки: месо и риба, млечни, плодове и зеленчуци, основни продукти (кафе, олио, брашно, захар, ориз, хляб), напитки, домакинство и хигиена. Включи и 1–3 нехранителни оферти само ако отстъпката е много голяма (категория „Друго“).
 
 Използвай източници като официалните сайтове (kaufland.bg, lidl.bg, billa.bg) и агрегатори на брошури (proomo.info, geobuyer.bg, broshura.bg, katalozi.bg). Цените са в евро (€). НЕ измисляй цени, отстъпки или дати — ако нещо не е проверено, не го включвай. Изчисли цена за единица (€/кг, €/л) където е възможно. Отбележи кои оферти изискват карта/приложение.
 
-Върни РЕЗУЛТАТА САМО като валиден JSON по следната схема (без markdown, без обяснения, само JSON обектът):
+Върни РЕЗУЛТАТА САМО като валиден JSON по следната схема (без markdown ограждане, без обяснения, само JSON обектът):
 {SCHEMA}
 
 Изисквания:
@@ -79,12 +80,10 @@ PROMPT = f"""Днес е {date_label} ({today.isoformat()}). Ти си аген�
 
 
 def extract_json(text):
-    text = text.strip()
-    # премахни ограждащи ```json ... ``` ако има
+    text = (text or "").strip()
     fence = re.search(r"```(?:json)?\s*(\{.*\})\s*```", text, re.S)
     if fence:
         text = fence.group(1)
-    # вземи от първата { до последната }
     i, j = text.find("{"), text.rfind("}")
     if i == -1 or j == -1 or j <= i:
         return None
@@ -92,23 +91,26 @@ def extract_json(text):
 
 
 def main():
-    client = anthropic.Anthropic(api_key=API_KEY)
+    client = genai.Client(api_key=API_KEY)
     try:
-        resp = client.messages.create(
+        resp = client.models.generate_content(
             model=MODEL,
-            max_tokens=16000,
-            tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 10}],
-            messages=[{"role": "user", "content": PROMPT}],
+            contents=PROMPT,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+                temperature=0.2,
+                max_output_tokens=16000,
+            ),
         )
     except Exception as e:
-        print(f"ERROR: неуспешно извикване на API ({MODEL}): {e}", file=sys.stderr)
+        print(f"ERROR: неуспешно извикване на Gemini ({MODEL}): {e}", file=sys.stderr)
         sys.exit(1)
 
-    text = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
+    text = getattr(resp, "text", None)
     raw = extract_json(text)
     if not raw:
         print("ERROR: не намерих JSON в отговора", file=sys.stderr)
-        print(text[:2000], file=sys.stderr)
+        print((text or "")[:2000], file=sys.stderr)
         sys.exit(1)
 
     try:
@@ -120,7 +122,8 @@ def main():
 
     items = data.get("items")
     if not isinstance(items, list) or len(items) < 10:
-        print(f"ERROR: твърде малко продукти ({len(items) if isinstance(items, list) else 'няма'}) — пазя старите данни", file=sys.stderr)
+        n = len(items) if isinstance(items, list) else "няма"
+        print(f"ERROR: твърде малко продукти ({n}) — пазя старите данни", file=sys.stderr)
         sys.exit(1)
 
     data.setdefault("date", today.isoformat())
