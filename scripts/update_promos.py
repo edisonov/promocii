@@ -17,7 +17,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 DATA = ROOT / "data.json"
 
 API_KEY = os.environ.get("GEMINI_API_KEY")
-MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+MODEL = os.environ.get("GEMINI_MODEL") or "gemini-2.5-flash"
 if not API_KEY:
     print("ERROR: липсва GEMINI_API_KEY", file=sys.stderr)
     sys.exit(1)
