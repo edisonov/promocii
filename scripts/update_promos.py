@@ -80,6 +80,20 @@ SCHEMA = r"""{
 CATS = "Месо и риба | Млечни | Плодове и зеленчуци | Основни продукти | Напитки | Домакинство и хигиена | Друго"
 
 
+def groq_models():
+    # Подреден списък с кандидат-модели; първият работещ се ползва.
+    cands = []
+    if GROQ_MODEL:
+        cands.append(GROQ_MODEL)
+    cands += ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "openai/gpt-oss-20b",
+              "llama-3.1-8b-instant", "gemma2-9b-it"]
+    seen, out = set(), []
+    for m in cands:
+        if m not in seen:
+            seen.add(m); out.append(m)
+    return out
+
+
 def groq_extract(context):
     sys_msg = ("Ти си помощник, който връща САМО валиден JSON обект по подадена схема. "
                "Не добавяй обяснения или markdown.")
@@ -102,20 +116,34 @@ def groq_extract(context):
 {context}
 
 Върни само JSON обекта."""
-    try:
-        res = http_post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            {"model": GROQ_MODEL, "temperature": 0.2, "max_tokens": 8000,
-             "response_format": {"type": "json_object"},
-             "messages": [{"role": "system", "content": sys_msg},
-                          {"role": "user", "content": user_msg}]},
-            {"Content-Type": "application/json", "Authorization": f"Bearer {GROQ_KEY}"},
-        )
-    except urllib.error.HTTPError as e:
-        print(f"ERROR: Groq HTTP {e.code}: {e.read().decode('utf-8','ignore')[:800]}", file=sys.stderr); sys.exit(1)
-    except Exception as e:
-        print(f"ERROR: Groq грешка ({GROQ_MODEL}): {e}", file=sys.stderr); sys.exit(1)
-    return res["choices"][0]["message"]["content"]
+    last_err = ""
+    for model in groq_models():
+        try:
+            res = http_post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                {"model": model, "temperature": 0.2, "max_tokens": 8000,
+                 "response_format": {"type": "json_object"},
+                 "messages": [{"role": "system", "content": sys_msg},
+                              {"role": "user", "content": user_msg}]},
+                {"Content-Type": "application/json", "Authorization": f"Bearer {GROQ_KEY}"},
+            )
+            print(f"INFO: използван модел {model}", file=sys.stderr)
+            return res["choices"][0]["message"]["content"]
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", "ignore")[:400]
+            last_err = f"HTTP {e.code} ({model}): {body}"
+            # 404/400 → моделът липсва или не е достъпен; пробвай следващия
+            if e.code in (400, 404):
+                print(f"WARN: {last_err} — пробвам следващ модел", file=sys.stderr)
+                continue
+            # друга грешка (401 ключ, 429 лимит) → няма смисъл да сменяме модел
+            print(f"ERROR: Groq {last_err}", file=sys.stderr); sys.exit(1)
+        except Exception as e:
+            last_err = f"{model}: {e}"
+            print(f"WARN: Groq грешка {last_err} — пробвам следващ модел", file=sys.stderr)
+            continue
+    print(f"ERROR: нито един Groq модел не сработи. Последна грешка: {last_err}", file=sys.stderr)
+    sys.exit(1)
 
 
 def extract_json(text):
