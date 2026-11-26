@@ -40,6 +40,7 @@ jobs:
           else
             git add data.json
             git commit -m "Авто-обнови промоции $(date -u +%Y-%m-%d)"
-            git push
+            git pull --rebase --autostash origin main || true
+            git push origin HEAD:main
             echo "data.json обновен и качен"
           fi
