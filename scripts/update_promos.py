@@ -26,8 +26,7 @@ UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 CATS = "Месо и риба | Млечни | Плодове и зеленчуци | Основни продукти | Напитки | Домакинство и хигиена | Друго"
 FEED = "https://www.proomo.info/feeds/posts/default?alt=json&max-results=50"
-MODELS_FALLBACK = ["openai/gpt-oss-120b", "openai/gpt-oss-20b",
-                   "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+MODELS_FALLBACK = ["openai/gpt-oss-120b", "openai/gpt-oss-20b"]
 CHAINS = [("Kaufland", "kaufland"), ("BILLA", "billa"), ("Lidl", "lidl")]
 
 
@@ -101,24 +100,33 @@ def model_list():
     return out
 
 
+def groq_once(model, system, user):
+    res = http_post("https://api.groq.com/openai/v1/chat/completions",
+                    {"model": model, "temperature": 0.1, "max_tokens": 2200,
+                     "response_format": {"type": "json_object"},
+                     "messages": [{"role": "system", "content": system},
+                                  {"role": "user", "content": user}]},
+                    {"Authorization": f"Bearer {GROQ_KEY}"})
+    return res["choices"][0]["message"]["content"]
+
+
 def groq_json(system, user):
+    """Един модел на опит; при лимит (413/429) изчаква и пробва пак; при 400/404 сменя модела."""
     last = ""
     for model in model_list():
-        try:
-            res = http_post("https://api.groq.com/openai/v1/chat/completions",
-                            {"model": model, "temperature": 0.1, "max_tokens": 2800,
-                             "response_format": {"type": "json_object"},
-                             "messages": [{"role": "system", "content": system},
-                                          {"role": "user", "content": user}]},
-                            {"Authorization": f"Bearer {GROQ_KEY}"})
-            return res["choices"][0]["message"]["content"], model
-        except urllib.error.HTTPError as e:
-            last = f"HTTP {e.code} ({model}): {e.read().decode('utf-8','ignore')[:200]}"
-            if e.code in (400, 404, 413, 429):
-                print(f"WARN: {last} — следващ модел", file=sys.stderr); time.sleep(2); continue
-            print(f"ERROR: Groq {last}", file=sys.stderr); return None, None
-        except Exception as e:
-            last = f"{model}: {e}"; print(f"WARN: {last}", file=sys.stderr); continue
+        for attempt in range(2):
+            try:
+                return groq_once(model, system, user), model
+            except urllib.error.HTTPError as e:
+                last = f"HTTP {e.code} ({model}): {e.read().decode('utf-8','ignore')[:180]}"
+                if e.code in (413, 429):
+                    print(f"WARN: {last} — изчаквам 65с и пробвам пак", file=sys.stderr)
+                    time.sleep(65); continue           # повтори същия модел след изчакване
+                if e.code in (400, 404):
+                    print(f"WARN: {last} — следващ модел", file=sys.stderr); break
+                print(f"ERROR: Groq {last}", file=sys.stderr); return None, None
+            except Exception as e:
+                last = f"{model}: {e}"; print(f"WARN: {last}", file=sys.stderr); break
     print(f"ERROR: нито един Groq модел не сработи. {last}", file=sys.stderr)
     return None, None
 
