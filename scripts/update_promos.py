@@ -50,7 +50,7 @@ def tavily_search(query, max_results=4):
         return []
     out = []
     for r in res.get("results", []):
-        txt = (r.get("raw_content") or r.get("content") or "")[:6000]
+        txt = (r.get("raw_content") or r.get("content") or "")[:1500]
         if txt.strip():
             out.append(f"ИЗТОЧНИК: {r.get('url','')}\n{txt}")
     return out
@@ -58,16 +58,15 @@ def tavily_search(query, max_results=4):
 
 def gather_context():
     queries = [
-        "Kaufland България актуална брошура промоции цени тази седмица",
-        "BILLA България седмична брошура промоции цени",
+        "Kaufland България брошура промоции цени тази седмица",
+        "BILLA България брошура промоции цени тази седмица",
         "Lidl България брошура промоции цени тази седмица",
-        "proomo.info Kaufland BILLA Lidl промоции тази седмица",
     ]
     chunks = []
     for q in queries:
-        chunks.extend(tavily_search(q))
+        chunks.extend(tavily_search(q, max_results=3))
     blob = "\n\n---\n\n".join(chunks)
-    return blob[:45000]  # пази контекста разумен
+    return blob[:7000]  # безплатният Groq лимит е ~8000 токена/минута
 
 
 SCHEMA = r"""{
@@ -85,8 +84,8 @@ def groq_models():
     cands = []
     if GROQ_MODEL:
         cands.append(GROQ_MODEL)
-    cands += ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "openai/gpt-oss-20b",
-              "llama-3.1-8b-instant", "gemma2-9b-it"]
+    cands += ["openai/gpt-oss-20b", "llama-3.1-8b-instant", "gemma2-9b-it",
+              "openai/gpt-oss-120b", "llama-3.3-70b-versatile"]
     seen, out = set(), []
     for m in cands:
         if m not in seen:
@@ -121,7 +120,7 @@ def groq_extract(context):
         try:
             res = http_post(
                 "https://api.groq.com/openai/v1/chat/completions",
-                {"model": model, "temperature": 0.2, "max_tokens": 8000,
+                {"model": model, "temperature": 0.2, "max_tokens": 3000,
                  "response_format": {"type": "json_object"},
                  "messages": [{"role": "system", "content": sys_msg},
                               {"role": "user", "content": user_msg}]},
@@ -133,10 +132,10 @@ def groq_extract(context):
             body = e.read().decode("utf-8", "ignore")[:400]
             last_err = f"HTTP {e.code} ({model}): {body}"
             # 404/400 → моделът липсва или не е достъпен; пробвай следващия
-            if e.code in (400, 404):
+            if e.code in (400, 404, 413, 429):
                 print(f"WARN: {last_err} — пробвам следващ модел", file=sys.stderr)
                 continue
-            # друга грешка (401 ключ, 429 лимит) → няма смисъл да сменяме модел
+            # друга грешка (напр. 401 невалиден ключ) → спри
             print(f"ERROR: Groq {last_err}", file=sys.stderr); sys.exit(1)
         except Exception as e:
             last_err = f"{model}: {e}"
