@@ -54,7 +54,9 @@ def tavily_context(chain):
         txt = (r.get("raw_content") or r.get("content") or "")[:3500]
         if txt.strip():
             parts.append(f"ИЗТОЧНИК {r.get('url','')}\n{txt}")
-    return ("\n\n".join(parts))[:8000]
+    ctx = ("\n\n".join(parts))[:8000]
+    print(f"DEBUG {chain}: ctx_len={len(ctx)} results={len(res.get('results', []))} preview={ctx[:600]!r}", file=sys.stderr)
+    return ctx
 
 
 def model_list():
