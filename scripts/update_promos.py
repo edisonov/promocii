@@ -101,9 +101,10 @@ def model_list():
 
 
 def groq_once(model, system, user):
-    # Без "response_format" (строгият JSON режим чупи gpt-oss) — сами разчитаме JSON от текста.
     res = http_post("https://api.groq.com/openai/v1/chat/completions",
-                    {"model": model, "temperature": 0.1, "max_tokens": 4000,
+                    {"model": model, "temperature": 0.1, "max_tokens": 5000,
+                     "reasoning_effort": "low",
+                     "response_format": {"type": "json_object"},
                      "messages": [{"role": "system", "content": system},
                                   {"role": "user", "content": user}]},
                     {"Authorization": f"Bearer {GROQ_KEY}"})
