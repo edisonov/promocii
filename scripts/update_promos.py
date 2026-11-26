@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
 """
 Обновява data.json с актуалните промоции в Lidl, Kaufland и BILLA (София).
-Безплатен стек: Tavily (търсене) + Groq (AI). Вади всяка верига поотделно,
-с пауза между заявките, за да се спази безплатният лимит на Groq (~8000 токена/мин).
+Източник: текстовите седмични публикации на proomo.info (Blogger feed) — реални
+таблици с цени. Структуриране с Groq (безплатно). Tavily е резервен източник.
 При грешка/малко данни НЕ презаписва data.json (пази последните добри данни).
 """
-import os, sys, json, re, time, datetime, pathlib, urllib.request, urllib.error
+import os, sys, json, re, time, html, datetime, pathlib, urllib.request, urllib.error
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DATA = ROOT / "data.json"
 
-TAVILY_KEY = os.environ.get("TAVILY_API_KEY")
 GROQ_KEY = os.environ.get("GROQ_API_KEY")
 GROQ_MODEL = os.environ.get("GROQ_MODEL")
-if not TAVILY_KEY:
-    print("ERROR: липсва TAVILY_API_KEY", file=sys.stderr); sys.exit(1)
+TAVILY_KEY = os.environ.get("TAVILY_API_KEY")  # по желание, резервен източник
 if not GROQ_KEY:
     print("ERROR: липсва GROQ_API_KEY", file=sys.stderr); sys.exit(1)
 
@@ -27,9 +25,16 @@ date_label = f"{BG_DAYS[today.weekday()]}, {today.day} {BG_MONTHS[today.month]} 
 UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 CATS = "Месо и риба | Млечни | Плодове и зеленчуци | Основни продукти | Напитки | Домакинство и хигиена | Друго"
-AGG = ["proomo.info", "geobuyer.bg", "broshura.bg", "katalozi.bg", "kaufland.bg", "lidl.bg", "billa.bg"]
+FEED = "https://www.proomo.info/feeds/posts/default?alt=json&max-results=50"
 MODELS_FALLBACK = ["openai/gpt-oss-120b", "openai/gpt-oss-20b",
                    "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+CHAINS = [("Kaufland", "kaufland"), ("BILLA", "billa"), ("Lidl", "lidl")]
+
+
+def http_get(url, timeout=60):
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json, text/*"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read().decode("utf-8", "ignore")
 
 
 def http_post(url, payload, headers, timeout=90):
@@ -40,23 +45,52 @@ def http_post(url, payload, headers, timeout=90):
         return json.loads(r.read().decode("utf-8"))
 
 
-def tavily_context(chain):
-    q = f"{chain} България брошура промоции цени тази седмица"
+def strip_html(h):
+    h = re.sub(r"(?is)<(script|style).*?</\1>", " ", h)
+    h = re.sub(r"(?s)<[^>]+>", " ", h)
+    h = html.unescape(h)
+    h = re.sub(r"[ \t ]+", " ", h)
+    h = re.sub(r"\n\s*\n+", "\n", h)
+    return h.strip()
+
+
+def proomo_sources():
+    """Връща {верига: текст} от най-новите публикации на proomo.info."""
+    try:
+        feed = json.loads(http_get(FEED))
+        entries = feed.get("feed", {}).get("entry", [])
+    except Exception as e:
+        print(f"WARN: proomo feed грешка: {e}", file=sys.stderr)
+        return {}
+    out = {}
+    for chain, kw in CHAINS:
+        best = None
+        for e in entries:
+            title = e.get("title", {}).get("$t", "")
+            if kw in title.lower():
+                pub = e.get("published", {}).get("$t", "")
+                if best is None or pub > best[0]:
+                    text = strip_html(e.get("content", {}).get("$t", ""))[:7000]
+                    best = (pub, text, title)
+        if best:
+            out[chain] = best[1]
+            print(f"DEBUG {chain}: proomo '{best[2]}' len={len(best[1])}", file=sys.stderr)
+    return out
+
+
+def tavily_source(chain):
+    if not TAVILY_KEY:
+        return ""
     try:
         res = http_post("https://api.tavily.com/search",
-                        {"api_key": TAVILY_KEY, "query": q, "search_depth": "advanced",
-                         "max_results": 5, "include_raw_content": True, "include_domains": AGG}, {})
+                        {"api_key": TAVILY_KEY, "query": f"{chain} България промоции цени брошура",
+                         "search_depth": "advanced", "max_results": 4, "include_raw_content": True,
+                         "include_domains": ["proomo.info", "geobuyer.bg"]}, {})
     except Exception as e:
-        print(f"WARN: Tavily грешка за {chain}: {e}", file=sys.stderr)
+        print(f"WARN: Tavily грешка {chain}: {e}", file=sys.stderr)
         return ""
-    parts = []
-    for r in res.get("results", []):
-        txt = (r.get("raw_content") or r.get("content") or "")[:3500]
-        if txt.strip():
-            parts.append(f"ИЗТОЧНИК {r.get('url','')}\n{txt}")
-    ctx = ("\n\n".join(parts))[:8000]
-    print(f"DEBUG {chain}: ctx_len={len(ctx)} results={len(res.get('results', []))} preview={ctx[:600]!r}", file=sys.stderr)
-    return ctx
+    parts = [(r.get("raw_content") or r.get("content") or "")[:3500] for r in res.get("results", [])]
+    return ("\n\n".join(p for p in parts if p.strip()))[:7000]
 
 
 def model_list():
@@ -81,8 +115,7 @@ def groq_json(system, user):
         except urllib.error.HTTPError as e:
             last = f"HTTP {e.code} ({model}): {e.read().decode('utf-8','ignore')[:200]}"
             if e.code in (400, 404, 413, 429):
-                print(f"WARN: {last} — следващ модел", file=sys.stderr)
-                time.sleep(2); continue
+                print(f"WARN: {last} — следващ модел", file=sys.stderr); time.sleep(2); continue
             print(f"ERROR: Groq {last}", file=sys.stderr); return None, None
         except Exception as e:
             last = f"{model}: {e}"; print(f"WARN: {last}", file=sys.stderr); continue
@@ -104,23 +137,22 @@ def parse_json(text):
         return None
 
 
-def extract_chain(chain):
-    ctx = tavily_context(chain)
+def extract_chain(chain, ctx):
     if len(ctx) < 300:
         print(f"WARN: малко съдържание за {chain}", file=sys.stderr)
         return {"ok": False, "note": "не е проверено днес"}, []
     system = "Връщаш САМО валиден JSON обект. Без markdown, без обяснения."
-    user = f"""Днес е {date_label} ({today.isoformat()}). От текста по-долу извлечи промоциите само на верига {chain} в България.
+    user = f"""Днес е {date_label} ({today.isoformat()}). От текста по-долу (седмична брошура) извлечи промоциите на верига {chain} в България.
 
 Върни JSON: {{"store_status": {{"ok": true, "note": "период на брошурата накратко"}}, "items": [ {{"id":"...","product":"...","size":"...","price":0.0,"old_price":null,"price_label":"...","unit_label":"...","discount":0,"category":"...","valid_to":"ДД.ММ","condition":"...","top":false}} ] }}
 
 Правила:
-- Извлечи колкото реални продукта намериш (цел 12–25). НЕ измисляй цени/отстъпки/дати — ако ги няма в текста, пропусни продукта.
+- Извлечи колкото реални продукта с цени намериш (цел 12–25). НЕ измисляй цени/отстъпки/дати.
 - "category" е точно една от: {CATS}.
-- "id": кратък идентификатор от първата буква на веригата + продукта, напр. за {chain}: "{chain[0].lower()}-ime".
-- "price" е число (напр. 2.55). "price_label" и "unit_label" за показване (напр. "2,55 €/кг", "6,36 €/кг"). Цените са в евро.
+- "id": кратка латиница от първа буква на веригата + продукта, напр. "{chain[0].lower()}-maslo".
+- "price" е число (напр. 2.55). "price_label" за показване (напр. "2,55 €/кг" или "1,59 €"); "unit_label" цена за единица (напр. "6,36 €/кг") или "". Цените са в евро.
+- "discount" цяло число проценти или null. "old_price" число или null.
 - Маркирай 4–6-те най-изгодни с "top": true.
-- Ако в текста няма реални оферти за {chain}, върни "ok": false и празен "items".
 
 ТЕКСТ:
 {ctx}
@@ -132,7 +164,7 @@ def extract_chain(chain):
         print(f"WARN: невалиден JSON за {chain}", file=sys.stderr)
         return {"ok": False, "note": "грешка при обработка"}, []
     status = data.get("store_status") or {"ok": True, "note": ""}
-    items = data.get("items") or []
+    items = [it for it in (data.get("items") or []) if isinstance(it, dict) and it.get("product") and it.get("price") is not None]
     for it in items:
         it["store"] = chain
     print(f"INFO: {chain}: {len(items)} продукта (модел {model})", file=sys.stderr)
@@ -140,16 +172,16 @@ def extract_chain(chain):
 
 
 def main():
+    sources = proomo_sources()
     all_items, statuses = [], []
-    chains = ["Kaufland", "BILLA", "Lidl"]
-    for idx, chain in enumerate(chains):
-        st, items = extract_chain(chain)
+    for idx, (chain, _) in enumerate(CHAINS):
+        ctx = sources.get(chain) or tavily_source(chain)
+        st, items = extract_chain(chain, ctx)
         statuses.append({"store": chain, "ok": st.get("ok", True), "note": st.get("note", "")})
         all_items.extend(items)
-        if idx < len(chains) - 1:
-            time.sleep(65)  # изчакване заради лимита токени/минута
+        if idx < len(CHAINS) - 1:
+            time.sleep(65)  # лимит токени/минута на безплатния Groq
 
-    # премахни дубликати по id
     seen, uniq = set(), []
     for it in all_items:
         iid = it.get("id") or (it.get("store", "") + it.get("product", ""))
@@ -163,18 +195,14 @@ def main():
 
     ok_stores = [s["store"] for s in statuses if s["ok"]]
     rec = ("Виж топ офертите по-долу. " +
-           (f"Проверени магазини днес: {', '.join(ok_stores)}. " if ok_stores else "") +
+           (f"Проверени днес: {', '.join(ok_stores)}. " if ok_stores else "") +
            "Обърни внимание на офертите, които изтичат скоро.")
 
     data = {
-        "date": today.isoformat(),
-        "date_label": date_label,
-        "city": "София",
+        "date": today.isoformat(), "date_label": date_label, "city": "София",
         "currency": "евро (€)",
         "generated_at": datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
-        "recommendation": rec,
-        "stores_status": statuses,
-        "items": uniq,
+        "recommendation": rec, "stores_status": statuses, "items": uniq,
     }
     DATA.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"OK: записани {len(uniq)} продукта за {today.isoformat()}")
