@@ -153,7 +153,7 @@ def extract_chain(chain, ctx):
     system = "Връщаш САМО валиден JSON обект. Без markdown, без обяснения."
     user = f"""Днес е {date_label} ({today.isoformat()}). От текста по-долу (седмична брошура) извлечи промоциите на верига {chain} в България.
 
-Върни JSON: {{"store_status": {{"ok": true, "note": "период на брошурата накратко"}}, "items": [ {{"id":"...","product":"...","size":"...","price":0.0,"old_price":null,"price_label":"...","unit_label":"...","discount":0,"category":"...","valid_to":"ДД.ММ","condition":"...","top":false}} ] }}
+Върни JSON: {{"store_status": {{"ok": true, "note": "реален период на брошурата с дати, напр. 23-29.11"}}, "items": [ {{"id":"...","product":"...","size":"...","price":0.0,"old_price":null,"price_label":"...","unit_label":"...","discount":0,"category":"...","valid_to":"ДД.ММ","condition":"...","top":false}} ] }}
 
 Правила:
 - Извлечи колкото реални продукта с цени намериш (цел 12–25). НЕ измисляй цени/отстъпки/дати.
@@ -186,7 +186,10 @@ def main():
     for idx, (chain, _) in enumerate(CHAINS):
         ctx = sources.get(chain) or tavily_source(chain)
         st, items = extract_chain(chain, ctx)
-        statuses.append({"store": chain, "ok": st.get("ok", True), "note": st.get("note", "")})
+        note = (st.get("note") or "").strip()
+        if any(x in note for x in ["реален период", "накратко", "период на брошурата с дати", "напр."]):
+            note = ""  # моделът е копирал примера вместо реални дати
+        statuses.append({"store": chain, "ok": st.get("ok", True), "note": note})
         all_items.extend(items)
         if idx < len(CHAINS) - 1:
             time.sleep(65)  # лимит токени/минута на безплатния Groq
